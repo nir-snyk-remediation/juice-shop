@@ -24,10 +24,19 @@ module.exports = function servePublicFiles () {
     if (file && (endsWithAllowlistedFileType(file) || (file === 'incident-support.kdbx'))) {
       file = insecurity.cutOffPoisonNullByte(file)
 
+      const ftpRoot = path.resolve(__dirname, '../ftp')
+      const safeName = path.basename(file)
+      const resolvedPath = path.resolve(ftpRoot, safeName)
+      const relativeToFtp = path.relative(ftpRoot, resolvedPath)
+      if (relativeToFtp.startsWith('..') || path.isAbsolute(relativeToFtp)) {
+        res.status(403)
+        return next(new Error('Invalid path'))
+      }
+
       utils.solveIf(challenges.directoryListingChallenge, () => { return file.toLowerCase() === 'acquisitions.md' })
       verifySuccessfulPoisonNullByteExploit(file)
 
-      res.sendFile(path.resolve(__dirname, '../ftp/', file))
+      res.sendFile(resolvedPath)
     } else {
       res.status(403)
       next(new Error('Only .md and .pdf files are allowed!'))
